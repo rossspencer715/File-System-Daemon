@@ -1,0 +1,122 @@
+.TH PROJECT 3
+.SH NAME
+Ross Spencer
+
+.SH FILES
+.B wad.h
+.RS 3 
+File Creation 
+.RS 3
+Wrote prototypes for my Wad class.
+
+.RE .RE
+.B wad.cpp 
+.RS 3
+File Creation
+.RS 3
+Implemented the Wad class. The structure of my wad first reads in all of the descriptors in a vector of descriptor-structs, then postprocesses it into a std::map which maps from the path of the file to the corresponding LumpDescriptor (so, e.g., /F/F1 should map to the LumpDescriptor named F1_START that comes after F_START). 
+
+.RE .RE
+.B wadfs.cpp 
+.RS 3
+File Creation
+.RS 3
+Implemented the methods to mount the wad file and wrap the Wad class's methods in FUSE to implement the filesystem. I relied heavily upon [1], [2], [3], [4], and [5] for the FUSE.
+
+.SH REASONS FOR ADDITIONS TO WAD.CPP
+.RE .RE
+.B LumpDescriptor Struct
+.RS 3
+This struct is how I keep track of the descriptors' attributes in the list.
+
+.RE .RE
+.B loadWad
+.RS 3  
+Takes all of the descriptors from the wad and puts them in a vector of LumpDescriptors. From here, I postprocess and use a workingDirectory vector to contruct the path to the file described by each descriptor.
+
+.RE .RE
+.B getMagic
+.RS 3 
+Returns the wad's magic char*.
+
+.RE .RE
+.B isContent
+.RS 3 
+Checks to see if the path exists in the map, and then checks if the file at the path is content.
+
+.RE .RE
+.B isDirectory
+.RS 3 
+Checks to see if the path exists in the map, and if it doesn't checks if it needs to remove the last slash (since, e.g., /F/ and /F point to the same directory), and then checks if the file at the path is a directory.
+
+.RE .RE
+.B getSize
+.RS 3 
+Finds the descriptor in the map then returns the length attribute from its LumpDescriptor.
+
+.RE .RE
+.B getContents
+.RS 3 
+Finds the LumpDescriptor at the path & uses its offset & length along with the function parameters to copy as much of the content in the file as possible using ifstream.
+
+.RE .RE
+.B getDirectory
+.RS 3 
+Finds if file's path is just its descriptor name attached to the path passed into the function (meaning it's a direct subdirectory/subfile) and adds all of those to the vector called directory passed in by pointer.
+
+.SH REASONS FOR ADDITIONS TO WADFS.CPP
+.RE .RE
+.B read_callback
+.RS 3
+Overrides the read syscall to use getContents.
+
+.RE .RE
+.B readdir_callback
+.RS 3
+
+Overrides the readdir syscall to use getDirectory.
+
+.RE .RE
+.B getattr_callback
+.RS 3
+Overrides the getattr syscall to set each file's permissions, filetype (content or directory), and size using isDirectory and getSize. Special recognition to [1] for lines 54–57 to fix ls from root.
+
+.RE .RE
+.B open_callback
+.RS 3
+Throws an error if the path isn't content. I don't think? anything else needed to be done here, "just check for existence and permissions and return either success or an error code"[5].
+
+.RE .RE
+.B opendir_callback
+.RS 3
+Throws an error if the path isn't a directory. I don't think? anything else needed to be done here either.
+
+.RE .RE
+.B set_ops
+.RS 3
+Sets the ops of my global fuse_operations struct wad_ops to the previously declared functions.
+
+.SH TESTING
+
+I ran wad_dump.cpp and deleted my wad at the end to check for memory leaks, with 0 leaks possible and no warnings in Valgrind. I also added "using namespace std;"" to it to get it to compile since I avoid using namespaces as Dave taught :) 
+
+For FUSE, I played around in office hours every day this week until I had something working, and used human-readable files from hex-snooping to test out cat and cp (used "cat DMXGUS" and "cp DMXGUS ~/cptest.txt" in demonstration). I also compared the file structures in the wad_dump output and what appeared when I ls'd into maps and different folders to make sure they matched.
+
+.SH BUGS
+Someone on Slack said nano should work but it doesn't for me?? Not sure if it is since it's not mentioned in the project spec? My read works for cat, so I think it's good??????
+
+.SH LINK
+.B unlisted video - 
+
+can be located at https://youtu.be/t75kwlgJvT0
+
+.SH REFERENCES
+1-http://www.maastaar.net/fuse/linux/filesystem/c/2016/05/21/writing-a-simple-filesystem-using-fuse/
+
+2-https://www.cs.nmsu.edu/~pfeiffer/fuse-tutorial/html/index.html 
+
+3-https://libfuse.github.io/doxygen/structfuse__operations.html#a272960bfd96a0100cbadc4e5a8886038
+
+4-http://nfs-ganesha.github.io/nfs-ganesha/fusexmp_8c_source.html
+
+5-https://www.cs.hmc.edu/~geoff/classes/hmc.cs135.201001/homework/fuse/fuse_doc.html
